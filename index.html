@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>mts.nekxd.fun</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      overflow: hidden;
+      background: #ffffff;
+      touch-action: manipulation;
+    }
+    #link {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+      line-height: 0;
+      border-radius: 6px;
+      transition: opacity 0.2s;
+    }
+    #link:hover {
+      opacity: 0.8;
+    }
+    #link img {
+      border: 0;
+      width: 88px;
+      height: 31px;
+    }
+    canvas {
+      display: block;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <a id="link" href="http://yuno.nya.pub" target="_blank">
+    <img src="http://yuno.nya.pub/img/yuno88x31.png" width="88" height="31" alt="клацни на меня!">
+  </a>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 3.8);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    mainLight.position.set(2, 3, 4);
+    scene.add(mainLight);
+    const fillLight = new THREE.DirectionalLight(0xcccccc, 0.3);
+    fillLight.position.set(-2, 1, 2);
+    scene.add(fillLight);
+
+    const textureLoader = new THREE.TextureLoader();
+    let logoMesh = null;
+
+    function createLogo(texture) {
+      if (logoMesh) scene.remove(logoMesh);
+      const material = new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        roughness: 0.3,
+        metalness: 0.1
+      });
+      const geometry = new THREE.PlaneGeometry(2.4, 2.4);
+      logoMesh = new THREE.Mesh(geometry, material);
+      logoMesh.position.set(0, 0, 0);
+      logoMesh.rotation.y = 0.3;
+      scene.add(logoMesh);
+    }
+
+    const mtsTexture = textureLoader.load('mts.png', 
+      () => { createLogo(mtsTexture); },
+      undefined,
+      () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, 512, 512);
+        ctx.fillStyle = '#dc143c';
+        ctx.font = 'bold 80px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('МТС', 256, 256);
+        const fallbackTexture = new THREE.CanvasTexture(canvas);
+        createLogo(fallbackTexture);
+      }
+    );
+
+    let isRotating = false;
+    const rotationSpeed = 0.025;
+    let musicStarted = false;
+    let audioContext = null;
+    let audioBuffer = null;
+    let currentSource = null;
+
+    async function loadMusic() {
+      if (audioContext) return;
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        const response = await fetch('music.mp3');
+        if (!response.ok) throw new Error();
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      } catch (e) {}
+    }
+
+    function playMusic() {
+      if (!audioContext || !audioBuffer) return;
+      if (audioContext.state === 'suspended') audioContext.resume();
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.loop = true;
+      source.connect(audioContext.destination);
+      source.start();
+      currentSource = source;
+    }
+
+    async function handleClick() {
+      if (!musicStarted) {
+        await loadMusic();
+        playMusic();
+        musicStarted = true;
+        isRotating = true;
+      }
+    }
+
+    renderer.domElement.addEventListener('click', handleClick);
+    renderer.domElement.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleClick();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (logoMesh && isRotating) {
+        logoMesh.rotation.y += rotationSpeed;
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
